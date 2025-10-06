@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LDT + Dictator Game (jsPsych)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- jsPsych 7 CDN -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-multi-choice@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-dropdown@1.2.0"></script>
+  <link href="https://unpkg.com/jspsych@7.3.3/dist/jspsych.css" rel="stylesheet" />
+  <style>
+    body { max-width: 800px; margin: 2rem auto; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .fix { font-size: 48px; line-height: 1; }
+    .stim { font-size: 40px; line-height: 1.2; }
+    .small { font-size: 14px; color: #666; }
+    .center { text-align:center; }
+    .left { text-align:left; }
+    .btn { padding: 10px 18px; }
+    .muted { color:#666; }
+    .idinput input { width: 260px; padding: 8px; font-size: 16px; }
+  </style>
+</head>
+<body>
+<script>
+const FIX_MS = 500;
+const STIM_MS = 1500;
+const KEY_WORD = 'v';
+const KEY_NONWORD = 'n';
+
+const religious_words = [
+ "prayer","sacred","belief","deity","sermon","devotion","faith","shrine","worship","holy",
+ "hymn","blessing","scripture","God","heaven","pilgrimage","meditation","hell","angel","miracle",
+ "eternity","prophet","ritual","purity","saint","offering","altar","salvation","temple","mosque",
+ "fasting","monk","spirit","divine","church","rosary","priest","gospel","fate","sacrifice",
+ "forgiveness","mercy","righteousness","sin","deliverance","sacrament","messiah","oracle","reincarnation","destiny",
+ "clergy","chapel","pilgrim","soul","spiritual","karma","doctrine","anoint","sacredness","purification"
+];
+
+const neutral_words = [
+ "sky","book","garden","house","movie","pencil","music","dinner","paper","friend",
+ "chair","car","desk","computer","bus","cake","shop","door","train","school",
+ "park","card","phone","beach","mountain","water","tea","knife","game","sport",
+ "photo","clock","bed","wall","street","shoes","forest","road","bread","flower",
+ "stone","shirt","city","bell","light","apple","dog","cat","salt","toy",
+ "key","coin","tree","circle","teacher","ticket","ring","candle","basket","jacket"
+];
+
+const nonwords = [
+ "mepter","glane","rovint","triven","plome","crint","zoril","brint","clorp","snet",
+ "lomix","prant","voden","wazen","frotee","marden","flirp","grint","quorp","dralen",
+ "splite","frabe","storn","broven","kelto","glaven","trome","spalt","nevik","crale",
+ "poter","soril","farnik","drave","plonet","swern","jovic","nurep","trevus","klint",
+ "sproke","velan","marnel","drang","torvil","parnex","slimer","grovin","farnet","merdal",
+ "trivic","kloren","blanet","crovil","sperin","monic","glaper","tovin","crafel","sporn"
+];
+
+const practice_neutral = ["window","market","garden","pencil"];
+const practice_nonwords = ["mepter","glane","rovint","plome"];
+
+function shuffle(array) {
+  let a = array.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const arm = (Math.random() < 0.5) ? 'religious' : 'neutral';
+const words_for_arm = arm === 'religious' ? religious_words : neutral_words;
+const main_words = shuffle(words_for_arm).slice(0, 60);
+const main_nonwords = shuffle(nonwords).slice(0, 60);
+
+const jsPsych = initJsPsych({
+  on_finish: function() { jsPsych.data.get().localSave('csv', 'ldt_dg_data.csv'); }
+});
+let timeline = [];
+
+const id_form = {
+  type: jsPsychSurveyHtmlForm,
+  preamble: `<h2 class="center">Welcome</h2><p class="center">Please enter your unique ID to begin.</p>`,
+  html: `<div class="center idinput"><label>Unique ID: <input name="pid" type="text" required></label></div>`,
+  autofocus: 'pid',
+  button_label: 'Continue'
+};
+timeline.push(id_form);
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `<div class="center">Thank you. Press SPACE to continue.</div>`,
+  choices: [' '],
+  on_start: function(trial){
+    const last = jsPsych.data.get().last(1).values()[0];
+    const pid = last.response?.pid || "";
+    jsPsych.data.addProperties({ participant_id: pid, ldt_arm: arm });
+  }
+});
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+  <div class="left">
+    <h2>Lexical Decision Task</h2>
+    <p>You will see a fixation <span class="stim">*</span>, then a letter string.</p>
+    <p>Decide if it is a real English word or a non-word.</p>
+    <ul>
+      <li>Press <b>V</b> if it is a <b>WORD</b>.</li>
+      <li>Press <b>N</b> if it is a <b>NON-WORD</b>.</li>
+    </ul>
+    <p>Respond quickly and accurately. The letter string is on screen for up to 1.5 seconds.</p>
+    <p class="muted">Practice will start first (8 trials), then the main task.</p>
+    <p class="center">Press SPACE to begin practice.</p>
+  </div>`,
+  choices: [' ']
+});
+
+const practice_trials = [];
+const prac_words = shuffle(practice_neutral).map(w => ({stim: w, is_word: true}));
+const prac_nonw = shuffle(practice_nonwords).map(w => ({stim: w, is_word: false}));
+const prac_all = shuffle(prac_words.concat(prac_nonw));
+prac_all.forEach((t) => {
+  practice_trials.push(
+    { type: jsPsychHtmlKeyboardResponse, stimulus: `<div class="fix center">*</div>`, choices: "NO_KEYS", trial_duration: FIX_MS },
+    { type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<div class="stim center">${t.stim}</div>`,
+      choices: [KEY_WORD, KEY_NONWORD],
+      trial_duration: STIM_MS,
+      data: { phase: 'practice', ldt_stim: t.stim, ldt_is_word: t.is_word },
+      on_finish: function(data){
+        const correctKey = t.is_word ? KEY_WORD : KEY_NONWORD;
+        data.correct = (data.response == correctKey);
+      }
+    }
+  );
+});
+timeline = timeline.concat(practice_trials);
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `<div class="center"><h3>Main Task</h3><p>Same keys: <b>V</b> for WORD, <b>N</b> for NON-WORD.</p><p>Press SPACE to begin.</p></div>`,
+  choices: [' ']
+});
+
+let main_trials = [];
+const main_all = shuffle(
+  main_words.map(w => ({stim: w, is_word: true, arm_word: arm}))
+  .concat(main_nonwords.map(w => ({stim: w, is_word: false, arm_word: arm})))
+);
+main_all.forEach((t) => {
+  main_trials.push(
+    { type: jsPsychHtmlKeyboardResponse, stimulus: `<div class="fix center">*</div>`, choices: "NO_KEYS", trial_duration: FIX_MS },
+    { type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<div class="stim center">${t.stim}</div>`,
+      choices: [KEY_WORD, KEY_NONWORD],
+      trial_duration: STIM_MS,
+      data: { phase: 'main', ldt_stim: t.stim, ldt_is_word: t.is_word, ldt_arm: arm },
+      on_finish: function(data){
+        const correctKey = t.is_word ? KEY_WORD : KEY_NONWORD;
+        data.correct = (data.response == correctKey);
+      }
+    }
+  );
+});
+timeline = timeline.concat(main_trials);
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+  <div class="left">
+    <h2>Dictator Game</h2>
+    <p>You will receive an endowment of <b>10 points</b>.</p>
+    <p>You can give any number of points (0–10) to an anonymous other participant.</p>
+    <p>What you give is added to the other person's payoff; what you keep remains yours.</p>
+    <p>You will answer two quick comprehension questions before making your decision.</p>
+    <p class="center">Press SPACE to continue.</p>
+  </div>`,
+  choices: [' '],
+  on_start: function(){ jsPsych.data.addProperties({ dg_endowment: 10 }); }
+});
+
+const comp1 = {
+  type: jsPsychSurveyMultiChoice,
+  questions: [{
+    prompt: "If you give 4 out of 10 points, how many do YOU keep?",
+    options: ["4","6","10"], required: true, horizontal: false, name: "q1"
+  }],
+  data: { phase: 'dg_comp', q: 'keep_if_give4' }
+};
+
+const comp1_feedback = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `<div class="center">Please read carefully and try again.</div>`,
+  choices: "NO_KEYS",
+  trial_duration: 1200
+};
+
+const comp1_loop = {
+  timeline: [comp1, comp1_feedback],
+  loop_function: function(){
+    const last = jsPsych.data.get().last(2).filter({trial_type: 'survey-multi-choice'}).values()[0];
+    const ans = last.response?.q1 || "";
+    return (ans !== "6");
+  }
+};
+
+const comp2 = {
+  type: jsPsychSurveyMultiChoice,
+  questions: [{
+    prompt: "If you give 4 out of 10 points, how many points does the OTHER person receive?",
+    options: ["4","6","10"], required: true, horizontal: false, name: "q2"
+  }],
+  data: { phase: 'dg_comp', q: 'other_if_give4' }
+};
+
+const comp2_feedback = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `<div class="center">Please read carefully and try again.</div>`,
+  choices: "NO_KEYS",
+  trial_duration: 1200
+};
+
+const comp2_loop = {
+  timeline: [comp2, comp2_feedback],
+  loop_function: function(){
+    const last = jsPsych.data.get().last(2).filter({trial_type: 'survey-multi-choice'}).values()[0];
+    const ans = last.response?.q2 || "";
+    return (ans !== "4");
+  }
+};
+timeline.push(comp1_loop, comp2_loop);
+
+const dg_decision = {
+  type: jsPsychSurveyDropdown,
+  questions: [{
+    prompt: "You have 10 points. How many points do you want to GIVE to the other person?",
+    options: ["0","1","2","3","4","5","6","7","8","9","10"],
+    required: true, name: "give"
+  }],
+  data: { phase: 'dg_choice' },
+  on_finish: function(data){
+    const give = parseInt(data.response.give, 10);
+    data.dg_give = give;
+    data.dg_keep = 10 - give;
+    jsPsych.data.addProperties({ dg_give: give, dg_keep: 10 - give });
+  }
+};
+timeline.push(dg_decision);
+
+timeline.push({
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `<div class="left">
+    <h3>Thank you!</h3>
+    <p>Your responses have been recorded. A CSV file will now download automatically.</p>
+    <p class="small">If a file doesn't download, your browser may be blocking it. You can click the button below to save manually.</p>
+  </div>`,
+  choices: ["Download data (CSV)"],
+  on_finish: function(){
+    jsPsych.data.get().localSave('csv', 'ldt_dg_data.csv');
+  }
+});
+
+jsPsych.run(timeline);
+</script>
+</body>
+</html>
